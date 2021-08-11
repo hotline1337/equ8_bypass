@@ -137,12 +137,6 @@ auto main(void) -> int
 	HKEY equ8DriverKey;
 	CHAR deviceSessionId[MAX_PATH];
 	DWORD deviceSessionIdLength = sizeof(deviceSessionId);
-	DWORD anticheatProcessPid;
-	HANDLE anticheatProcessHandle;
-	HANDLE anticheatProcessToken;
-	SID_IDENTIFIER_AUTHORITY newTokenSidAuthority;
-	TOKEN_MANDATORY_LABEL newTokenIntegrity;
-	PSID newTokenSid;
 
 	LSTATUS status = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\EQU8_HELPER_36", 0, KEY_READ, &equ8DriverKey);
 	if (status != ERROR_SUCCESS)
