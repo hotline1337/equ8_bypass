@@ -11,7 +11,7 @@
 #include <iostream>
 #include <functional>
 
-#include "etc.hpp"
+#include "globals.hpp"
 #include "xor.hpp"
 #include "import.hpp"
 
