@@ -3,7 +3,7 @@
 Simple EQU8 User-Mode Bypass that uses registry to find the driver path and close the IOCTL handle
 
 ## Proof of concept
-By finding EQU8's driver **SessionId** using registry keys we get the IOCTL handle and close it - as it's the only handle to the driver and we close it the driver will simply unload itself
+By finding EQU8's driver **SessionId** using registry keys we get the **IOCTL handle** and close it - as it's the only handle to the driver and we close it the driver will simply **unload itself**
 
 ## Compiling
 Build as **Release x64 | MSVC v143**
