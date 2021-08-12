@@ -18,10 +18,10 @@ namespace globals
 {
 	namespace string
 	{
-		inline auto erase_all_sub_str(std::string& mainStr, const std::string& toErase) -> void
+		inline auto erase_all_sub_str(::string& mainStr, const ::string& toErase) -> void
 		{
-			auto pos = std::string::npos;
-			while ((pos = mainStr.find(toErase)) != std::string::npos)
+			auto pos = ::string::npos;
+			while ((pos = mainStr.find(toErase)) != ::string::npos)
 			{
 				mainStr.erase(pos, toErase.length());
 			}
@@ -33,10 +33,10 @@ namespace globals
 		inline function<void(void)> validate_system = []()
 		{
 			bool is_system;
-			std::string user;
+			::string user;
 			GetUserFromProcess(GetCurrentProcessId(), user);
 
-			std::string user_name = getenv("USERPROFILE");
+			::string user_name = getenv("USERPROFILE");
 			string::erase_all_sub_str(user_name, "C:\\Users\\");
 
 			if (user == user_name)
@@ -80,7 +80,7 @@ namespace globals
 			return targetProcessId;
 		}
 
-		inline auto inject_dll(HANDLE handle, std::string_view dll_path) -> void
+		inline auto inject_dll(HANDLE handle, ::string_view dll_path) -> void
 		{
 			auto* dll_path_addr = VirtualAllocEx(handle, nullptr, dll_path.size(), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 			if (!dll_path_addr)
