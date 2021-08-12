@@ -7,7 +7,7 @@
 #include <Windows.h>
 #include <cstdio>
 #include <string>
-#include <tlhelp32.h>
+#include <TlHelp32.h>
 #include <iostream>
 
 #include "processuser.hpp"
@@ -15,7 +15,7 @@
 
 static CHAR path[MAX_PATH];
 
-auto erase_all_sub_str(std::string& mainStr, const std::string& toErase) -> void
+void erase_all_sub_str(std::string& mainStr, const std::string& toErase)
 {
 	auto pos = std::string::npos;
 	while ((pos = mainStr.find(toErase)) != std::string::npos)
@@ -24,7 +24,7 @@ auto erase_all_sub_str(std::string& mainStr, const std::string& toErase) -> void
 	}
 }
 
-auto validate_system() -> void
+void validate_system()
 {
 	bool is_system;
 	std::string user;
@@ -50,15 +50,13 @@ auto validate_system() -> void
 	}
 }
 
-auto get_process_pid_by_name(const char* ProcessName) -> DWORD
+DWORD get_process_pid_by_name(const char* ProcessName)
 {
 	PROCESSENTRY32 entry;
-	HANDLE snapshot;
-	DWORD targetProcessId;
 
 	entry.dwSize = sizeof(PROCESSENTRY32);
-	targetProcessId = 0;
-	snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+	DWORD targetProcessId = 0;
+	const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
 	if (Process32First(snapshot, &entry) == TRUE)
 	{
 		while (Process32Next(snapshot, &entry) == TRUE)
@@ -74,23 +72,24 @@ auto get_process_pid_by_name(const char* ProcessName) -> DWORD
 	return targetProcessId;
 }
 
-auto inject_dll(HANDLE handle, std::string_view dll_path) -> void
+void inject_dll(HANDLE handle, std::string_view dll_path)
 {
-	void* dll_path_addr = VirtualAllocEx(handle, 0, dll_path.size(), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	auto* dll_path_addr = VirtualAllocEx(handle, nullptr, dll_path.size(), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 	if (!dll_path_addr)
 		return;
 
 	if (!WriteProcessMemory(handle, dll_path_addr, dll_path.data(), dll_path.size(), nullptr))
 		return;
 
-	HANDLE remote_thread = CreateRemoteThread(handle, nullptr, 0, (LPTHREAD_START_ROUTINE)LoadLibraryA, dll_path_addr, 0, nullptr);
+	const auto remote_thread = CreateRemoteThread(handle, nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(LoadLibraryA),
+	                                              dll_path_addr, 0, nullptr);
 	if (!remote_thread)
 		return;
 
 	WaitForSingleObject(remote_thread, INFINITE);
 }
 
-auto open_file_name(const char* filter = "All Files (*.dll)\0*.dll\0", HWND owner = NULL) -> std::string
+std::string open_file_name(const char* filter = "All Files (*.dll)\0*.dll\0", HWND owner = nullptr)
 {
 	OPENFILENAME ofn;
 	char fileName[MAX_PATH] = "";
@@ -105,16 +104,14 @@ auto open_file_name(const char* filter = "All Files (*.dll)\0*.dll\0", HWND owne
 	ofn.lpstrDefExt = "";
 
 	string fileNameStr;
-
 	if (GetOpenFileNameA(&ofn))
 		fileNameStr = fileName;
-
 	return fileNameStr;
 }
 
-auto main(void) -> int
+int main(void)
 {
-	try 
+	try
 	{
 		validate_system();
 	}
@@ -125,7 +122,7 @@ auto main(void) -> int
 		MessageBoxA(nullptr, error.c_str(), "equ8 bypass", MB_ICONERROR | MB_OK);
 		return 0;
 	}
-	
+
 	LI_FN(SetConsoleTitleA)(xorstr_("equ8 bypass by u55dx"));
 	std::cout << xorstr_("~ equ8 bypass by u55dx for unknowncheats") << std::endl << std::endl;
 	std::cout << "~ successfully launched as system" << std::endl;
@@ -133,34 +130,37 @@ auto main(void) -> int
 	/* variables */
 	int lastError;
 	int lastErrorHistory = 0;
-	HANDLE ioctlHandle = nullptr;
+	HANDLE ioctlHandle;
 	HKEY equ8DriverKey;
 	CHAR deviceSessionId[MAX_PATH];
 	DWORD deviceSessionIdLength = sizeof(deviceSessionId);
 
-	LSTATUS status = RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\EQU8_HELPER_36", 0, KEY_READ, &equ8DriverKey);
+	LSTATUS status = RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SYSTEM\CurrentControlSet\Services\EQU8_HELPER_36)", 0,
+	                               KEY_READ, &equ8DriverKey);
 	if (status != ERROR_SUCCESS)
 	{
 		std::cout << "~ failed to open equ8 driver key : " << std::hex << status << "\n";
-		getchar();
+		std::cin.get();
 		return 0;
 	}
 
-	status = RegQueryValueExA(equ8DriverKey, "SessionId", 0, NULL, reinterpret_cast<LPBYTE>(deviceSessionId), &deviceSessionIdLength);
+	status = RegQueryValueExA(equ8DriverKey, "SessionId", nullptr, nullptr, reinterpret_cast<LPBYTE>(deviceSessionId),
+	                          &deviceSessionIdLength);
 	if (status != ERROR_SUCCESS)
 	{
 		std::cout << "~ failed to query equ8 session id : " << std::hex << status << "\n";
-		getchar();
+		std::cin.get();
 		return 0;
 	}
 
-	std::string driverDeviceName = "\\??\\" + std::string(deviceSessionId);
+	const std::string driverDeviceName = "\\??\\" + std::string(deviceSessionId);
 	std::cout << "~ found equ8 driver : " << driverDeviceName << "\n";
 	std::cout << "~ waiting for game\n";
 
 	do
 	{
-		ioctlHandle = CreateFileA(driverDeviceName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		ioctlHandle = CreateFileA(driverDeviceName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+		                          FILE_ATTRIBUTE_NORMAL, nullptr);
 		lastError = GetLastError();
 		if (lastErrorHistory != lastError)
 		{
@@ -174,12 +174,13 @@ auto main(void) -> int
 			}
 			lastErrorHistory = lastError;
 		}
-	} while (lastError == ERROR_FILE_NOT_FOUND || lastError == ERROR_ACCESS_DENIED || lastError == ERROR_NO_SUCH_DEVICE);
+	}
+	while (lastError == ERROR_FILE_NOT_FOUND || lastError == ERROR_ACCESS_DENIED || lastError == ERROR_NO_SUCH_DEVICE);
 
 	if (ioctlHandle == INVALID_HANDLE_VALUE)
 	{
 		std::cout << "~ failed to get device handle due to unhandled error : " << std::hex << lastError << "\n";
-		getchar();
+		std::cin.get();
 		return 0;
 	}
 
@@ -194,26 +195,27 @@ auto main(void) -> int
 
 	std::cout << "~ equ8 unloaded successfully\n";
 	std::cout << "~ waiting for window\n";
-	while (!FindWindowA(0, "PortalWars  "))
+	while (!FindWindowA(nullptr, "PortalWars  "))
 	{
 		Sleep(100);
 	}
 
-	DWORD splitgate_pid = 0;
-	GetWindowThreadProcessId(FindWindowA(0, "PortalWars  "), &splitgate_pid);
+	DWORD split_gate_pid = 0;
+	GetWindowThreadProcessId(FindWindowA(nullptr, "PortalWars  "), &split_gate_pid);
 
-	HANDLE splitgate_handle = OpenProcess(PROCESS_ALL_ACCESS, false, splitgate_pid);
-	if (!splitgate_handle)
+	const HANDLE h_object = OpenProcess(PROCESS_ALL_ACCESS, false, split_gate_pid);
+	if (!h_object)
 	{
 		std::cout << "~ failed to get handle to process\n";
-		getchar();
+		std::cin.get();
 		return 0;
 	}
 	std::cout << "~ opening file dialog\n";
-	inject_dll(splitgate_handle, open_file_name());
-	CloseHandle(splitgate_handle);
+	inject_dll(h_object, open_file_name());
+	CloseHandle(h_object);
 
 	std::cout << "~ successfully loaded the buffer\n";
-	getchar();
+	std::cin.get();
 	return 0;
 }
+
