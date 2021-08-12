@@ -9,111 +9,19 @@
 #include <string>
 #include <TlHelp32.h>
 #include <iostream>
+#include <functional>
 
-#include "processuser.hpp"
-#include "trustedinstaller.hpp"
+#include "etc.hpp"
+#include "xor.hpp"
+#include "import.hpp"
 
-static CHAR path[MAX_PATH];
+using namespace std;
 
-void erase_all_sub_str(std::string& mainStr, const std::string& toErase)
-{
-	auto pos = std::string::npos;
-	while ((pos = mainStr.find(toErase)) != std::string::npos)
-	{
-		mainStr.erase(pos, toErase.length());
-	}
-}
-
-void validate_system()
-{
-	bool is_system;
-	std::string user;
-	GetUserFromProcess(GetCurrentProcessId(), user);
-
-	std::string user_name = getenv("USERPROFILE");
-	erase_all_sub_str(user_name, "C:\\Users\\");
-
-	if (user == user_name)
-	{
-		is_system = false;
-	}
-	else
-	{
-		is_system = true;
-	}
-
-	GetModuleFileNameA(nullptr, path, MAX_PATH);
-	if (!is_system)
-	{
-		create_process(path);
-		TerminateProcess(GetCurrentProcess(), 0);
-	}
-}
-
-DWORD get_process_pid_by_name(const char* ProcessName)
-{
-	PROCESSENTRY32 entry;
-
-	entry.dwSize = sizeof(PROCESSENTRY32);
-	DWORD targetProcessId = 0;
-	const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-	if (Process32First(snapshot, &entry) == TRUE)
-	{
-		while (Process32Next(snapshot, &entry) == TRUE)
-		{
-			if (_stricmp(entry.szExeFile, ProcessName) == 0)
-			{
-				targetProcessId = entry.th32ProcessID;
-				break;
-			}
-		}
-	}
-	CloseHandle(snapshot);
-	return targetProcessId;
-}
-
-void inject_dll(HANDLE handle, std::string_view dll_path)
-{
-	auto* dll_path_addr = VirtualAllocEx(handle, nullptr, dll_path.size(), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	if (!dll_path_addr)
-		return;
-
-	if (!WriteProcessMemory(handle, dll_path_addr, dll_path.data(), dll_path.size(), nullptr))
-		return;
-
-	const auto remote_thread = CreateRemoteThread(handle, nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(LoadLibraryA),
-	                                              dll_path_addr, 0, nullptr);
-	if (!remote_thread)
-		return;
-
-	WaitForSingleObject(remote_thread, INFINITE);
-}
-
-std::string open_file_name(const char* filter = "All Files (*.dll)\0*.dll\0", HWND owner = nullptr)
-{
-	OPENFILENAME ofn;
-	char fileName[MAX_PATH] = "";
-	memset(&ofn, 0, sizeof(ofn));
-
-	ofn.lStructSize = sizeof(OPENFILENAME);
-	ofn.hwndOwner = owner;
-	ofn.lpstrFilter = filter;
-	ofn.lpstrFile = fileName;
-	ofn.nMaxFile = MAX_PATH;
-	ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
-	ofn.lpstrDefExt = "";
-
-	string fileNameStr;
-	if (GetOpenFileNameA(&ofn))
-		fileNameStr = fileName;
-	return fileNameStr;
-}
-
-int main(void)
+auto main(void) -> int
 {
 	try
 	{
-		validate_system();
+		globals::validation::validate_system();
 	}
 	catch (std::exception& ex)
 	{
@@ -123,8 +31,8 @@ int main(void)
 		return 0;
 	}
 
-	LI_FN(SetConsoleTitleA)(xorstr_("equ8 bypass by u55dx"));
-	std::cout << xorstr_("~ equ8 bypass by u55dx for unknowncheats") << std::endl << std::endl;
+	import(SetConsoleTitleA)(xorstr_("equ8 bypass by u55dx"));
+	std::cout << xorstr_("~ equ8 bypass by u55dx for unknowncheats\n~ github.com/hotline1337") << std::endl << std::endl;
 	std::cout << "~ successfully launched as system" << std::endl;
 
 	/* variables */
@@ -159,7 +67,7 @@ int main(void)
 
 	do
 	{
-		ioctlHandle = CreateFileA(driverDeviceName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+		ioctlHandle = import(CreateFileA).get()(driverDeviceName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
 		                          FILE_ATTRIBUTE_NORMAL, nullptr);
 		lastError = GetLastError();
 		if (lastErrorHistory != lastError)
@@ -185,7 +93,7 @@ int main(void)
 	}
 
 	std::cout << "~ successfully opened equ8 driver : " << std::hex << reinterpret_cast<ULONG64>(ioctlHandle) << "\n";
-	while (get_process_pid_by_name("PortalWars-Win64-Shipping.exe") == NULL)
+	while (globals::process::get_process_pid_by_name("PortalWars-Win64-Shipping.exe") == NULL)
 	{
 		Sleep(50);
 	}
@@ -211,11 +119,12 @@ int main(void)
 		return 0;
 	}
 	std::cout << "~ opening file dialog\n";
-	inject_dll(h_object, open_file_name());
+	globals::process::inject_dll(h_object, globals::file::open_file_name());
 	CloseHandle(h_object);
 
 	std::cout << "~ successfully loaded the buffer\n";
 	std::cin.get();
 	return 0;
 }
+
 
