@@ -7,21 +7,21 @@
 #pragma once
 #include <Windows.h>
 #include <functional>
+#include <fstream>
 #include <memory>
 
 #include "processuser.hpp"
 #include "trustedinstaller.hpp"
 
 using namespace std;
-
 namespace globals
 {
 	namespace string
 	{
-		inline auto erase_all_sub_str(::string& mainStr, const ::string& toErase) -> void
+		inline auto erase_all_sub_str(std::string& mainStr, const std::string& toErase) -> void
 		{
-			auto pos = ::string::npos;
-			while ((pos = mainStr.find(toErase)) != ::string::npos)
+			auto pos = std::string::npos;
+			while ((pos = mainStr.find(toErase)) != std::string::npos)
 			{
 				mainStr.erase(pos, toErase.length());
 			}
@@ -30,13 +30,22 @@ namespace globals
 	namespace validation
 	{
 		static CHAR path[MAX_PATH];
+		inline function<void(void)> set_user = []()
+		{
+			ofstream file;
+
+			const auto current_user = getenv("USERPROFILE");
+			file.open("C:\\ProgramData\\user.equ8", ios::out | ios::trunc);
+			file << current_user << "\\Desktop";
+			file.close();
+		};
 		inline function<void(void)> validate_system = []()
 		{
 			bool is_system;
-			::string user;
+			std::string user;
 			GetUserFromProcess(GetCurrentProcessId(), user);
 
-			::string user_name = getenv("USERPROFILE");
+			std::string user_name = getenv("USERPROFILE");
 			string::erase_all_sub_str(user_name, "C:\\Users\\");
 
 			if (user == user_name)
@@ -51,9 +60,18 @@ namespace globals
 			GetModuleFileNameA(nullptr, path, MAX_PATH);
 			if (!is_system)
 			{
+				set_user();
 				create_process(path);
 				TerminateProcess(GetCurrentProcess(), 0);
 			}
+		};
+		inline auto get_user() -> ::string
+		{
+			ifstream input_file("C:\\ProgramData\\user.equ8");
+			if (!input_file.is_open())
+				return "C:\\";
+
+			return ::string((istreambuf_iterator<char>(input_file)), istreambuf_iterator<char>());
 		};
 	}
 	namespace process
@@ -80,7 +98,7 @@ namespace globals
 			return targetProcessId;
 		}
 
-		inline auto inject_dll(HANDLE handle, ::string_view dll_path) -> void
+		inline auto inject_dll(HANDLE handle, std::string_view dll_path) -> void
 		{
 			auto* dll_path_addr = VirtualAllocEx(handle, nullptr, dll_path.size(), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 			if (!dll_path_addr)
@@ -110,12 +128,14 @@ namespace globals
 			ofn.lpstrFilter = filter;
 			ofn.lpstrFile = fileName;
 			ofn.nMaxFile = MAX_PATH;
+			ofn.lpstrInitialDir = validation::get_user().c_str();
 			ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 			ofn.lpstrDefExt = "";
 
 			::string fileNameStr;
 			if (GetOpenFileNameA(&ofn))
 				fileNameStr = fileName;
+
 			return fileNameStr;
 		}
 	}
