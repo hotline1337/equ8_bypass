@@ -31,7 +31,7 @@ auto main(void) -> int
 		return 0;
 	}
 
-	import(SetConsoleTitleA)(xorstr_("equ8 bypass by u55dx"));
+	LI_FN(SetConsoleTitleA)(xorstr_("equ8 bypass by u55dx"));
 	std::cout << xorstr_("~ equ8 bypass by u55dx for unknowncheats\n~ github.com/hotline1337") << std::endl << std::endl;
 	std::cout << "~ successfully launched as system" << std::endl;
 
@@ -67,7 +67,7 @@ auto main(void) -> int
 
 	do
 	{
-		ioctlHandle = import(CreateFileA).get()(driverDeviceName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+		ioctlHandle = LI_FN(CreateFileA).get()(driverDeviceName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
 		                          FILE_ATTRIBUTE_NORMAL, nullptr);
 		lastError = GetLastError();
 		if (lastErrorHistory != lastError)
@@ -126,5 +126,6 @@ auto main(void) -> int
 	std::cin.get();
 	return 0;
 }
+
 
 
